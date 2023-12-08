@@ -1,0 +1,221 @@
+version: "3.2"
+
+services:
+
+  metabase:
+   image: metabase/metabase:latest
+#   network_mode: "host"
+   ports:
+     - 3000:3000
+   volumes:
+     - $PWD/metabase-data/:/metabase-data
+     - "/etc/timezone:/etc/timezone:ro"
+     - "/etc/localtime:/etc/localtime:ro"
+
+   environment:
+    - MB_DB_FILE=/metabase-data/metabase.db
+
+  transaction:
+    image: registry.gitlab.com/wavetec-tempest/product-transaction:v1.9.3
+    ports:
+      - 9061:9061
+    volumes:
+      - $PWD/transaction/conf/application.yaml:/application.yaml
+      - $PWD/transaction/conf/logback.xml:/logback.xml
+      - $PWD/log/transaction/:/log
+#      - $PWD/transaction/conf/cert/chain-du.pem:/chain-du.pem
+#      - $PWD/transaction/conf/cert/prv-du.pem:/prv-du.pem
+#      - "/etc/timezone:/etc/timezone:ro"
+#      - "/etc/localtime:/etc/localtime:ro"
+
+  inventory:
+    image: registry.gitlab.com/wavetec-tempest/product-inventory:v1.11.18
+    ports:
+     - 9064:9064
+    volumes:
+      - $PWD/inventory/conf/application.yaml:/application.yaml
+      - $PWD/inventory/conf/logback.xml:/logback.xml
+      - $PWD/logs/inventory/:/logs/ssk
+#      - "/etc/timezone:/etc/timezone:ro"
+#      - "/etc/localtime:/etc/localtime:ro"<F4><F4><F4><F4><F4><F4><F4><F4><F4><F4>
+
+  vendor:
+    image: registry.gitlab.com/wavetec-tempest/vendor-ubl:v0.0.18
+    ports:
+     - 9066:9066
+     - 9067:9067
+    volumes:
+      - $PWD/vendor/conf/application.yaml:/application.yaml
+      - $PWD/vendor/conf/logback.xml:/logback.xml
+      - $PWD/logs/vendor/:/log
+        #      - /etc/hosts:/etc/hosts
+        #      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+#      - /etc/pki/ca-trust/extracted/pem:/usr/lib/jvm/java-1.8-openjdk/jre/lib/security/
+      - $PWD/cacerts:/etc/ssl/certs/java/cacerts
+
+  auth_server:
+    image: registry.gitlab.com/wavetec-tempest/jwt-auth-server:v2.3.2
+    volumes:
+#      - $PWD/cert/cert-pem.pem:/home/cert/cert-pem.pem
+#      - $PWD/cert/cert-du.jks:/home/cert/cert-du.jks
+      - $PWD/authserver/application.yaml:/application.yaml
+      - $PWD/authserver/jwt.jks:/jwt.jks
+    ports:
+      - 9082:9082
+
+  portal_backend:
+    image: registry.gitlab.com/wavetec-tempest/product-portal:v2.7.6
+    #    network_mode: "host"
+    volumes:
+            #      - $PWD/cert/cert-pem.pem:/home/cert/cert-pem.pem
+            #      - $PWD/cert/cert-du.jks:/home/cert/cert-du.jks
+      - $PWD/portal/application.yaml:/application.yaml
+      - $PWD/logs/portal/:/log/
+        #      - $PWD/commons/documents:/documents/
+      - $PWD/documents/:/Images/
+      - $PWD/commons/media:/media/
+      - $PWD/portal/public.cert:/public.cert
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 9081:9081
+
+  portal_frontend:
+    image: registry.gitlab.com/wavetec-tempest/wavetec-portal:wavetec-portal-prod-v1.1.49
+#    environment:
+#      TZ: "Asia/Karachi ubuntu date"
+    volumes:
+      - ~/logs/nginx:/var/log/nginx
+      - $PWD/frontend/html/assets/app-config.json:/usr/share/nginx/html/assets/app-config.json
+        #      - "/etc/timezone:/etc/timezone:ro"
+        #      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 9080:80
+
+
+  envoy:
+    image: envoyproxy/envoy-dev:549acee6f6aaa94279c23fac81bb8e69fde1d827
+    volumes:
+      - $PWD/envoy/conf/envoy.yaml:/etc/envoy/envoy.yaml
+      - $PWD/envoy/logs/:/logs
+    ports:
+      - 9901:9901
+      - 10000:80
+    environment:
+      - "ENVOY_UID=0"
+
+        #  portal_frontend:
+        #    image: registry.gitlab.com/wavetec-tempest/wavetec-portal:wavetec-portal-prod-v0.0.2-demo-portal-mock
+#    environment:
+#      TZ: "Asia/Karachi ubuntu date"
+#    volumes:
+#      - ~/logs/nginx:/var/log/nginx
+#      - "/etc/timezone:/etc/timezone:ro"
+#      - "/etc/localtime:/etc/localtime:ro"
+#      - $PWD/frontend/html:/usr/share/nginx/html/
+#      - $PWD/frontend/nginx.conf:/etc/nginx/nginx.conf
+#      - $PWD/frontend/certs/certificate.crt:/etc/pki/nginx/certificate.crt
+#      - $PWD/frontend/certs/server.key:/etc/pki/nginx/private/server.key
+#    ports:
+#      - 9080:80
+
+
+#   portal_frontend:
+#     image: registry.gitlab.com/wavetec-tempest/wavetec-portal:wavetec-portal-prod-v0.0.2-ask
+#    environment:
+#      TZ: "Asia/Karachi ubuntu date"
+#    volumes:
+#      - ~/logs/nginx:/var/log/nginx
+#      - "/etc/timezone:/etc/timezone:ro"
+#      - "/etc/localtime:/etc/localtime:ro"
+#     ports:
+#       - 9080:80
+
+
+  prometheus:
+    image: prom/prometheus:v2.14.0
+    user: root
+    ports:
+     - 9090:9090
+    volumes:
+      - $PWD/prometheus/:/etc/prometheus/
+      - $PWD/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - $PWD/prometheus/alert.rules:/etc/prometheus/alert.rules
+      - $PWD/prometheus/prometheus_data:/prometheus
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=10d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-admin-api'
+
+  alertmanager:
+    image: prom/alertmanager:v0.19.0
+    ports:
+      - 9093:9093
+    volumes:
+      - $PWD/alert-manager/:/etc/alertmanager/
+      - $PWD/alert-manager/config.yml:/etc/alertmanager/config.yml
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+        #    restart: always
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+
+  alert_notification_sender:
+    image: registry.gitlab.com/wavetec-tempest/alert-notification-sender:${ALERT_NOTIFICATION_SENDER_TAG}
+    volumes:
+      - $PWD/alert-notification-sender/application.yaml:/application.yaml
+      - $PWD/alert-notification-sender/logback.xml:/logback.xml
+      - $PWD/logs/alert-notification-sender/:/log/
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 9071:9071
+      - 9076:9076
+        #    restart: always
+
+  history_maker:
+    image: registry.gitlab.com/wavetec-tempest/product-historymaker:${HISTORY_MAKER_TAG}
+    volumes:
+      - $PWD/historymaker/application.yaml:/application.yaml
+      - $PWD/historymaker/logback.xml:/logback.xml
+      - $PWD/logs/historymaker/:/log/
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 9074:9074
+      - 9075:9075
+
+  feedback:
+    image: "registry.gitlab.com/wavetec-tempest/product-feedback:v1.4"
+    ports:
+     - 9077:9077
+     - 9078:9078
+     - 9079:9079
+    volumes:
+      - $PWD/feedback/conf/application.yaml:/application.yaml
+      - $PWD/feedback/conf/logback.xml:/logback.xml
+      - $PWD/logs/feedback/:/log/
+      - $PWD/feedback/conf/cert/chain-du.pem:/chain-du.pem
+      - $PWD/feedback/conf/cert/prv-du.pem:/prv-du.pem
+
+  portainer:
+    image: portainer/portainer-ce:latest
+#    networks:
+#      - innodbnet
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /portainer-data:/data
+    ports:
+      - 7000:7000
